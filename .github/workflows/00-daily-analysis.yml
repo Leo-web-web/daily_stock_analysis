@@ -31,6 +31,8 @@ concurrency:
 jobs:
   analyze:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     # 兼容误将 STOCK_LIST 配到同名 Environment variables 的场景；
     # 推荐位置仍是 Settings -> Secrets and variables -> Actions -> Repository variables。
     environment: STOCK_LIST
@@ -570,6 +572,47 @@ jobs:
             logs/
           retention-days: 30
       
+      - name: 发布每日简报到仓库
+        if: always()
+        run: |
+          # reports/ 在 .gitignore 里，必须用 git add -f 才能提交；
+          # runner 每次是全新环境，reports/ 里只有本轮生成的文件，取最新即可。
+          # 先精确匹配合并报告 report_YYYYMMDD.md，再回退到任意 report_*.md。
+          REPORT=$(ls -t reports/report_[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9].md 2>/dev/null | head -n 1)
+          [ -z "$REPORT" ] && REPORT=$(ls -t reports/report_*.md 2>/dev/null | head -n 1)
+          REVIEW=$(ls -t reports/market_review_*.md 2>/dev/null | head -n 1)
+          if [ -z "$REPORT" ] && [ -z "$REVIEW" ]; then
+            echo "今日无报告，跳过发布"
+            exit 0
+          fi
+
+          # 从文件名取报告日期（report_YYYYMMDD.md），拼成固定文件 reports/latest.md
+          DATE8=$(basename "${REPORT:-$REVIEW}" | sed -E 's/[^0-9]*([0-9]{8}).*/\1/')
+          DATE_FMT="${DATE8:0:4}-${DATE8:4:2}-${DATE8:6:2}"
+          {
+            echo "# 每日简报 · ${DATE_FMT}"
+            echo ""
+            echo "> 数据截至北京时间 ${DATE_FMT} 18:00；仅供参考，不构成投资建议。"
+            echo ""
+            if [ -n "$REVIEW" ]; then
+              cat "$REVIEW"
+              echo ""
+            fi
+            if [ -n "$REPORT" ]; then
+              cat "$REPORT"
+            fi
+          } > reports/latest.md
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -f reports/latest.md
+          if git diff --cached --quiet; then
+            echo "简报无变化，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: publish daily brief [skip ci]"
+          git push
+
       - name: 显示运行结果
         if: always()
         run: |
