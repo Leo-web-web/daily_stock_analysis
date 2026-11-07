@@ -1787,7 +1787,7 @@ Concept lagging: {bottom_concepts_text if bottom_concepts_text else "N/A"}"""
 - Output pure Markdown only
 - No JSON
 - No code blocks
-- Use emoji sparingly in headings (at most one per heading)
+- Do not use emoji in headings or body text
 - The entire fixed shell, headings, guidance, and conclusion must be in {shell_language_label}
 {data_boundary_requirement}
 
@@ -1840,7 +1840,7 @@ Output the report content directly, no extra commentary.
 - 必须输出纯 Markdown 文本格式
 - 禁止输出 JSON 格式
 - 禁止输出代码块
-- emoji 仅在标题处少量使用（每个标题最多1个）
+- 标题和正文中不要使用 emoji
 - {workflow_hint}
 - 不要重复列出已由系统注入的表格数据；正文负责解释表格背后的含义
 {data_boundary_requirement}

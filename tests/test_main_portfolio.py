@@ -304,7 +304,7 @@ class MainPortfolioTest(unittest.TestCase):
         )
         feishu_instance.create_daily_doc.assert_called_once()
         _, doc_content = feishu_instance.create_daily_doc.call_args.args
-        self.assertIn("# 🚀 个股决策仪表盘\n\ndashboard", doc_content)
+        self.assertIn("# 个股决策仪表盘\n\ndashboard", doc_content)
         run_auto_backtest.assert_called_once_with(config)
 
     def test_run_full_analysis_still_sends_merged_notification_before_report_save_failure(self):
@@ -375,8 +375,8 @@ class MainPortfolioTest(unittest.TestCase):
         self.assertEqual(main._LAST_ANALYSIS_FAILURE_REASON, "report_save_failed")
         pipeline.notifier.send.assert_called_once()
         combined_content = pipeline.notifier.send.call_args.args[0]
-        self.assertIn("# 📈 大盘复盘\n\nmarket review", combined_content)
-        self.assertIn("# 🚀 个股决策仪表盘\n\ndashboard", combined_content)
+        self.assertIn("# 大盘复盘\n\nmarket review", combined_content)
+        self.assertIn("# 个股决策仪表盘\n\ndashboard", combined_content)
         run_auto_backtest.assert_called_once_with(config)
 
     def test_run_full_analysis_returns_false_when_market_review_only_run_generates_no_report(self):

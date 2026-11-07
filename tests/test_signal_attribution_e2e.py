@@ -117,7 +117,7 @@ class TestSignalAttributionE2E:
         测试 notification.py 中 generate_dashboard_report() 正确渲染 signal_attribution。
 
         验证：
-        1. signal_attribution 存在时，通知中包含"信号归因"段落
+        1. signal_attribution 存在时，通知中包含"信号来源"段落
         2. 四个贡献度都正确显示
         """
         from src.notification import NotificationService
@@ -137,8 +137,8 @@ class TestSignalAttributionE2E:
         notification = NotificationService()
         report = notification.generate_dashboard_report([result], [dashboard])
 
-        # 验证包含信号归因段落
-        assert "信号归因" in report or "Signal Attribution" in report, "通知应包含信号归因段落"
+        # 验证包含信号来源段落
+        assert "信号来源" in report or "Signal Sources" in report, "通知应包含信号来源段落"
         assert "35%" in report, "通知应显示 technical_indicators=35%"
         assert "25%" in report, "通知应显示 news_sentiment=25%"
         assert "20%" in report, "通知应显示 fundamentals=20%"
@@ -255,7 +255,9 @@ class TestSignalAttributionE2E:
         for output in [dashboard_report, single_report, history_report, template_report]:
             assert output is not None
             assert "信号归因" not in output
+            assert "信号来源" not in output
             assert "Signal Attribution" not in output
+            assert "Signal Sources" not in output
 
     def test_non_finite_signal_attribution_is_hidden_across_real_paths(self):
         """NaN/Infinity weights are missing values, not confident attribution."""
@@ -319,7 +321,9 @@ class TestSignalAttributionE2E:
         for output in [dashboard_report, single_report, history_report, template_report]:
             assert output is not None
             assert "信号归因" not in output
+            assert "信号来源" not in output
             assert "Signal Attribution" not in output
+            assert "Signal Sources" not in output
             assert "NaN" not in output
             assert "Infinity" not in output
 

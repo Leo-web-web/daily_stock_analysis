@@ -21,22 +21,22 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")
 from src.notification import NotificationService
 
 
-ZERO_HIT_DISCLOSURE = "⚠️ 本次未获取到可用的新闻面数据，以下结论未纳入新闻维度证据。"
-NO_CHANNEL_DISCLOSURE = "⚠️ 未配置搜索渠道，本次分析未纳入新闻面证据。"
+ZERO_HIT_DISCLOSURE = "本次未获取到可用的新闻面数据，以下结论未纳入新闻维度证据。"
+NO_CHANNEL_DISCLOSURE = "未配置搜索渠道，本次分析未纳入新闻面证据。"
 EN_ZERO_HIT_DISCLOSURE = (
-    "⚠️ No news data could be retrieved for this run; "
+    "No news data could be retrieved for this run; "
     "the conclusions below do not incorporate news-based evidence."
 )
 EN_NO_CHANNEL_DISCLOSURE = (
-    "⚠️ No news search channel is configured; "
+    "No news search channel is configured; "
     "this analysis does not incorporate news-based evidence."
 )
 KO_ZERO_HIT_DISCLOSURE = (
-    "⚠️ 이번 분석에서 사용 가능한 뉴스 데이터를 가져오지 못해 "
+    "이번 분석에서 사용 가능한 뉴스 데이터를 가져오지 못해 "
     "아래 결론에는 뉴스 근거를 반영하지 않았습니다."
 )
 KO_NO_CHANNEL_DISCLOSURE = (
-    "⚠️ 뉴스 검색 채널이 설정되지 않아 이번 분석에는 "
+    "뉴스 검색 채널이 설정되지 않아 이번 분석에는 "
     "뉴스 근거를 반영하지 않았습니다."
 )
 

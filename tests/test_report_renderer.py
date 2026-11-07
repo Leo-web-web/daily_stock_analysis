@@ -80,7 +80,7 @@ class TestReportRenderer(unittest.TestCase):
         self.assertIn("决策仪表盘", out)
         self.assertIn("贵州茅台", out)
         self.assertIn("买入", out)
-        self.assertIn("🟢买入:1", out)
+        self.assertIn("买入: 1", out)
 
     def test_render_markdown_preserves_guardrailed_neutral_action(self) -> None:
         r = _make_result(
@@ -94,7 +94,7 @@ class TestReportRenderer(unittest.TestCase):
 
         self.assertIsNotNone(out)
         self.assertIn("持有", out)
-        self.assertIn("🟡观望:1", out)
+        self.assertIn("观望: 1", out)
 
     def test_render_markdown_uses_explicit_avoid_and_alert_text(self) -> None:
         avoid = _make_result(
@@ -119,10 +119,8 @@ class TestReportRenderer(unittest.TestCase):
         out = render("markdown", [avoid, alert], summary_only=True)
 
         self.assertIsNotNone(out)
-        self.assertIn("🟡 **Avoid Corp(AVOID)**: Avoid | Score 90", out)
-        self.assertIn("🔴 **Alert Corp(ALERT)**: Alert | Score 85", out)
-        self.assertIn("**Avoid Corp(AVOID)**: Avoid | Score 90", out)
-        self.assertIn("**Alert Corp(ALERT)**: Alert | Score 85", out)
+        self.assertIn("**Avoid Corp(AVOID)**：Avoid | Score 90", out)
+        self.assertIn("**Alert Corp(ALERT)**：Alert | Score 85", out)
         self.assertNotIn("**Avoid Corp(AVOID)**: Buy", out)
         self.assertNotIn("**Alert Corp(ALERT)**: Buy", out)
 
@@ -131,9 +129,10 @@ class TestReportRenderer(unittest.TestCase):
         r = _make_result()
         out = render("markdown", [r], summary_only=False)
         self.assertIsNotNone(out)
-        self.assertIn("核心结论", out)
-        self.assertIn("作战计划", out)
+        self.assertIn("### 结论", out)
+        self.assertIn("### 操作", out)
         self.assertNotIn("盘中决策护栏", out)
+        self.assertNotIn("作战计划", out)
 
     def test_render_markdown_omits_decision_signal_excerpt(self) -> None:
         """Markdown reports omit the duplicated DecisionSignal excerpt."""
@@ -169,10 +168,63 @@ class TestReportRenderer(unittest.TestCase):
         out = render("markdown", [r], summary_only=False)
 
         self.assertIsNotNone(out)
-        self.assertIn("盘中决策护栏", out)
+        self.assertIn("### 操作", out)
         self.assertIn("盘中跟踪", out)
         self.assertIn("放量突破", out)
         self.assertIn("quote: stale", out)
+
+    def test_render_markdown_keeps_stock_code_once_in_title(self) -> None:
+        """A name that already embeds its code must not repeat it in the title."""
+        r = _make_result(code="^N225", name="日经 225 指数（^N225）")
+        out = render("markdown", [r], summary_only=False)
+        self.assertIsNotNone(out)
+        self.assertIn("## 日经 225 指数 (^N225)", out)
+        self.assertIn("**日经 225 指数(^N225)**", out)
+        self.assertNotIn("（^N225）", out)
+
+    def test_render_markdown_rounds_prices_to_two_decimals(self) -> None:
+        """Raw float prices must not leak long decimals into the report."""
+        r = _make_result(
+            code="EWY",
+            name="EWY",
+            dashboard={
+                "core_conclusion": {"one_sentence": "等待确认"},
+                "battle_plan": {
+                    "sniper_points": {
+                        "ideal_buy": 137.74989318847656,
+                        "stop_loss": 130,
+                    },
+                },
+                "data_perspective": {
+                    "price_position": {
+                        "current_price": 137.74989318847656,
+                        "ma5": 136.123456789,
+                    },
+                },
+            },
+        )
+        r.market_snapshot = {
+            "close": 137.74989318847656,
+            "prev_close": 136.5,
+            "open": 137.0,
+            "high": 138.25,
+            "low": 136.75,
+            "pct_chg": -0.123456789,
+            "change_amount": 1.24989318847656,
+            "amplitude": 0.912345678,
+            "volume": 1200000,
+            "amount": 215000000,
+            "price": 137.74989318847656,
+            "volume_ratio": 1.23456789,
+            "turnover_rate": 0.567891234,
+            "source": "yfinance",
+        }
+        out = render("markdown", [r], summary_only=False)
+        self.assertIsNotNone(out)
+        self.assertIn("137.75", out)
+        self.assertNotIn("137.74989318847656", out)
+        self.assertNotIn("136.123456789", out)
+        self.assertNotIn("1.23456789", out)
 
     def test_render_markdown_skips_context_only_phase_decision_shape(self) -> None:
         """Markdown skips mechanically shaped phase_decision without actionable content."""
@@ -379,7 +431,7 @@ class TestReportRenderer(unittest.TestCase):
         out = render("markdown", [r], summary_only=False)
 
         self.assertIsNotNone(out)
-        self.assertIn("**筹码**: 筹码分布未启用或数据源暂不可用，未纳入筹码判断。", out)
+        self.assertIn("**筹码**：筹码分布未启用或数据源暂不可用，未纳入筹码判断。", out)
         self.assertEqual(out.count("数据缺失，无法判断"), 0)
 
     def test_render_markdown_renders_strategy_synthesis_with_localized_labels(self) -> None:
@@ -417,7 +469,7 @@ class TestReportRenderer(unittest.TestCase):
         out = render("markdown", [r], summary_only=False)
 
         self.assertIsNotNone(out)
-        self.assertIn("多策略综合", out)
+        self.assertIn("### 信号来源", out)
         self.assertIn("综合信号: 买入", out)
         self.assertIn("默认多头趋势/买入/80%", out)
         self.assertIn("热点题材/卖出/75%", out)
@@ -438,6 +490,7 @@ class TestReportRenderer(unittest.TestCase):
                 out = render(platform, [result], summary_only=False)
 
                 self.assertIsNotNone(out)
+                self.assertNotIn("信号来源", out)
                 self.assertNotIn("多策略综合", out)
 
             result = _make_result(
@@ -461,7 +514,10 @@ class TestReportRenderer(unittest.TestCase):
             out = render(platform, [result], summary_only=False)
 
             self.assertIsNotNone(out)
-            self.assertIn("多策略综合", out)
+            if platform == "markdown":
+                self.assertIn("### 信号来源", out)
+            else:
+                self.assertIn("多策略综合", out)
             self.assertIn("另有 3 个策略解析失败", out)
 
     def test_render_unknown_platform_returns_none(self) -> None:

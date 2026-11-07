@@ -793,9 +793,9 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
             ]
         )
 
-        self.assertIn("🟡 Avoid Corp(AVOID): Avoid | Score 90", summary)
-        self.assertIn("🔴 Alert Corp(ALERT): Alert | Score 85", summary)
-        self.assertIn("🟢 Add Corp(ADD): Add | Score 50", summary)
+        self.assertIn("**Avoid Corp(AVOID)**：Avoid | Score 90", summary)
+        self.assertIn("**Alert Corp(ALERT)**：Alert | Score 85", summary)
+        self.assertIn("**Add Corp(ADD)**：Add | Score 50", summary)
         self.assertNotIn("Buy | Score 50", summary)
         self.assertNotIn("Strong Buy", summary)
 
@@ -817,7 +817,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_brief_report([result], report_date="2026-07-11")
 
-        self.assertIn("🟢1 🟡0 🔴0", out)
+        self.assertIn("Buy: 1 Watch: 0 Sell: 0", out)
         self.assertIn("Buy | Score 72", out)
         self.assertNotIn("Hold | Score 72", out)
 
@@ -958,8 +958,8 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         self.assertEqual(render.call_count, 2)
         self.assertEqual(dashboard.count("daily:AlphaFetcher"), 1)
         self.assertEqual(brief.count("daily:AlphaFetcher"), 1)
-        self.assertIn("*📋 数据来源：daily:AlphaFetcher*", dashboard)
-        self.assertIn("*📋 数据来源：daily:AlphaFetcher*", brief)
+        self.assertIn("*数据来源：daily:AlphaFetcher*", dashboard)
+        self.assertIn("*数据来源：daily:AlphaFetcher*", brief)
 
     @mock.patch("src.notification.get_config")
     def test_source_labels_render_in_all_supported_languages(
@@ -992,7 +992,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
                         )
 
                         self.assertIn(
-                            f"*📋 {expected_label}：daily:AlphaFetcher*",
+                            f"*{expected_label}：daily:AlphaFetcher*",
                             out,
                         )
 
@@ -1035,7 +1035,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         out = service.generate_daily_report([result], report_date="2026-08-27")
 
         self.assertEqual(
-            out.count("*📋 数据来源：agent:a,daily:AlphaFetcher*"),
+            out.count("*数据来源：agent:a,daily:AlphaFetcher*"),
             1,
         )
 
@@ -1123,11 +1123,104 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_dashboard_report([result], report_date="2026-02-01")
 
-        self.assertIn("盘中决策护栏", out)
+        self.assertIn("### 操作", out)
         self.assertIn("盘中跟踪", out)
         self.assertIn("等待确认", out)
         self.assertIn("放量突破", out)
         self.assertIn("quote: stale", out)
+
+    @mock.patch("src.notification.get_config")
+    def test_dashboard_title_keeps_stock_code_once(
+        self, mock_get_config: mock.MagicMock
+    ):
+        """A name that already embeds its code must not repeat it in the title."""
+        mock_get_config.return_value = _make_config(report_renderer_enabled=False)
+        service = NotificationService()
+        result = AnalysisResult(
+            code="^N225",
+            name="日经 225 指数（^N225）",
+            sentiment_score=60,
+            trend_prediction="震荡",
+            operation_advice="观望",
+            analysis_summary="等待确认",
+            dashboard={
+                "core_conclusion": {"one_sentence": "等待确认"},
+            },
+        )
+
+        out = service.generate_dashboard_report([result], report_date="2026-11-07")
+
+        self.assertIn("## 日经 225 指数 (^N225)", out)
+        self.assertIn("**日经 225 指数(^N225)**", out)
+        self.assertNotIn("（^N225）", out)
+
+    @mock.patch("src.notification.get_config")
+    def test_dashboard_prices_are_rounded_to_two_decimals(
+        self, mock_get_config: mock.MagicMock
+    ):
+        """Raw float prices must not leak long decimals into the report."""
+        mock_get_config.return_value = _make_config(report_renderer_enabled=False)
+        service = NotificationService()
+        result = AnalysisResult(
+            code="EWY",
+            name="EWY",
+            sentiment_score=60,
+            trend_prediction="震荡",
+            operation_advice="观望",
+            analysis_summary="等待确认",
+            dashboard={
+                "core_conclusion": {"one_sentence": "等待确认"},
+                "battle_plan": {
+                    "sniper_points": {
+                        "ideal_buy": 137.74989318847656,
+                        "secondary_buy": "135.5",
+                        "stop_loss": 130,
+                        "take_profit": 145.123456,
+                    },
+                },
+                "data_perspective": {
+                    "price_position": {
+                        "current_price": 137.74989318847656,
+                        "ma5": 136.123456789,
+                        "ma10": 135,
+                        "ma20": 134.5,
+                        "bias_ma5": 1.23456789,
+                        "bias_status": "中性",
+                        "support_level": 130.987654321,
+                        "resistance_level": 140,
+                    },
+                    "volume_analysis": {
+                        "volume_ratio": 1.23456789,
+                        "turnover_rate": 0.123456789,
+                        "volume_status": "温和放量",
+                        "volume_meaning": "",
+                    },
+                },
+            },
+        )
+        result.market_snapshot = {
+            "close": 137.74989318847656,
+            "prev_close": 136.5,
+            "open": 137.0,
+            "high": 138.25,
+            "low": 136.75,
+            "pct_chg": -0.123456789,
+            "change_amount": 1.24989318847656,
+            "amplitude": 0.912345678,
+            "volume": 1200000,
+            "amount": 215000000,
+            "price": 137.74989318847656,
+            "volume_ratio": 1.23456789,
+            "turnover_rate": 0.567891234,
+            "source": "yfinance",
+        }
+
+        out = service.generate_dashboard_report([result], report_date="2026-11-07")
+
+        self.assertIn("137.75", out)
+        self.assertNotIn("137.74989318847656", out)
+        self.assertNotIn("136.123456789", out)
+        self.assertNotIn("1.23456789", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_skips_context_only_phase_decision_default_renderer(
@@ -1244,7 +1337,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
             markdown = service.generate_dashboard_report([result], report_date="2026-07-19")
             wechat = service.generate_wechat_dashboard([result])
 
-            self.assertNotIn("多策略综合", markdown)
+            self.assertNotIn("信号来源", markdown)
             self.assertNotIn("多策略综合", wechat)
 
         result = AnalysisResult(
@@ -1432,7 +1525,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_dashboard_report([result], report_date="2026-02-01")
 
-        self.assertIn("**筹码**: 筹码分布未启用或数据源暂不可用，未纳入筹码判断。", out)
+        self.assertIn("**筹码**：筹码分布未启用或数据源暂不可用，未纳入筹码判断。", out)
         self.assertEqual(out.count("数据缺失，无法判断"), 0)
 
     @mock.patch("src.notification.get_config")

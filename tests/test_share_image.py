@@ -1090,6 +1090,92 @@ def test_stock_share_image_reads_chinese_volume_label_from_data_view():
     assert "0.82%" in html
 
 
+def test_stock_share_image_reads_new_format_report_sections():
+    """New-format dashboard reports keep feeding the share poster.
+
+    The redesigned report uses 结论/操作/消息与风险/数据/信号来源 sections
+    and bold sub-labels (e.g. **当日行情**) instead of the old
+    核心结论/作战计划/数据透视 headings; the poster parser must read both.
+    """
+    html = build_share_image_html(
+        """# 2026-11-07 决策仪表盘
+
+> 共分析 **1** 只股票 | 买入: 1 观望: 0 卖出: 0
+
+## 分析结果摘要
+
+**贵州茅台(600519)**：买入 | 评分 72 | 看多
+
+---
+
+## 贵州茅台 (600519)
+
+### 结论
+
+**买入** | 看多
+
+稳健持有。
+
+时间窗：本周内
+
+空仓者：等待回踩确认
+持仓者：继续持有
+
+### 操作
+
+| 操作点位 | 当前价 |
+|---------|------|
+| 理想买入点 | 1420-1450 |
+| 止损位 | 1350 |
+| 目标位 | 1580 |
+
+### 消息与风险
+
+**风险警报**：
+- 估值偏高
+
+### 数据
+
+**当日行情**
+
+| 收盘价 | 昨收 | 开盘 | 最高 | 最低 | 涨跌幅 | 涨跌额 | 振幅 | 成交量 | 成交额 |
+|------|------|------|------|------|-------|-------|------|--------|--------|
+| 1425.00 | 1410.00 | 1412.00 | 1430.00 | 1408.00 | +1.06% | 15.00 | 1.56% | 1200000 | 215000000 |
+
+| 当前价 | 量比 | 换手率 | 数据源 |
+|-------|------|--------|----------|
+| 1425.00 | 1.35 | 0.82% | 腾讯财经 |
+
+**均线排列**：多头排列 | 是否多头：是 | 趋势强度：78/100
+
+| 价格指标 | 当前价 |
+|---------|------|
+| 当前价 | 1425.00 |
+| 支撑位 | 1400.00 |
+| 压力位 | 1490.00 |
+
+**量能**：量能比 1.35 (放量) | 换手率 0.82%
+
+### 信号来源
+
+归因权重：技术指标 50%、新闻舆情 20%、基本面 20%、市场环境 10%
+""",
+        generated_on=date(2026, 7, 31),
+    )
+
+    assert "市场快照" in html
+    assert "1425.00" in html
+    assert "+1.06%" in html
+    assert "技术参考" in html
+    assert ">量能<" in html
+    assert "1.35" in html
+    assert "0.82%" in html
+    assert "稳健持有。" in html
+    assert "1420" in html
+    assert "1350" in html
+    assert "估值偏高" in html
+
+
 def test_share_image_escapes_title_but_keeps_markdown_body_markup():
     html = build_share_image_html(
         "# AAPL <script>alert(1)</script>\n\n**结论**：关注。",

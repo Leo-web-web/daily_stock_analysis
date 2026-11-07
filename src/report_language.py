@@ -403,7 +403,7 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "data_sources_label": "数据来源",
         "data_perspective_heading": "数据透视",
         "ma_alignment_label": "均线排列",
-        "bullish_alignment_label": "多头排列",
+        "bullish_alignment_label": "是否多头",
         "yes_label": "是",
         "no_label": "否",
         "none_label": "无",
@@ -494,6 +494,13 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "strategy_supporting_skills_label": "支持策略",
         "strategy_opposing_skills_label": "反方策略",
         "strategy_invalid_opinions_label": "另有 {count} 个策略解析失败",
+        "verdict_heading": "结论",
+        "action_heading": "操作",
+        "news_risk_heading": "消息与风险",
+        "data_heading": "数据",
+        "signal_sources_heading": "信号来源",
+        "time_window_label": "时间窗",
+        "missing_data_label": "暂无数据",
     },
     "en": {
         "dashboard_title": "Decision Dashboard",
@@ -629,6 +636,13 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "strategy_supporting_skills_label": "Supporting Strategies",
         "strategy_opposing_skills_label": "Opposing Strategies",
         "strategy_invalid_opinions_label": "{count} additional strategies failed to produce valid signals",
+        "verdict_heading": "Conclusion",
+        "action_heading": "Action",
+        "news_risk_heading": "News & Risks",
+        "data_heading": "Data",
+        "signal_sources_heading": "Signal Sources",
+        "time_window_label": "Time Window",
+        "missing_data_label": "No data",
     },
     "ko": {
         "dashboard_title": "결정 대시보드",
@@ -764,6 +778,13 @@ _REPORT_LABELS: Dict[str, Dict[str, str]] = {
         "strategy_supporting_skills_label": "지지 전략",
         "strategy_opposing_skills_label": "반대 전략",
         "strategy_invalid_opinions_label": "추가로 {count}개 전략이 유효한 신호를 생성하지 못했습니다",
+        "verdict_heading": "결론",
+        "action_heading": "대응",
+        "news_risk_heading": "뉴스와 리스크",
+        "data_heading": "데이터",
+        "signal_sources_heading": "신호 출처",
+        "time_window_label": "유효 기간",
+        "missing_data_label": "데이터 없음",
     },
 }
 
@@ -1303,6 +1324,100 @@ def get_localized_stock_name(value: Any, code: Any, language: Optional[str]) -> 
     if not _is_placeholder_stock_name(raw_text, code):
         return raw_text
     return _GENERIC_STOCK_NAME_BY_LANGUAGE[normalize_report_language(language)]
+
+
+def strip_code_from_stock_name(value: Any, code: Any) -> str:
+    """Remove ticker-code occurrences embedded in a stock display name.
+
+    LLM-generated names sometimes already carry the code, e.g.
+    "日经 225 指数（^N225）". Rendering such a name next to the code again
+    ("日经 225 指数（^N225）(^N225)") repeats the code, so strip the
+    parenthesised or bare code token here and let the caller append the
+    code exactly once via format_stock_display_label.
+    """
+    text = str(value or "").strip()
+    code_text = str(code or "").strip()
+    if not text or not code_text:
+        return text
+    escaped = re.escape(code_text)
+    pattern = re.compile(
+        r"\s*[（(]\s*" + escaped + r"\s*[)）]"
+        r"|\s+" + escaped + r"(?=$|[\s（(])",
+        re.IGNORECASE,
+    )
+    cleaned = pattern.sub("", text).strip()
+    return cleaned or text
+
+
+def format_stock_display_label(name: Any, code: Any, separator: str = " ") -> str:
+    """Format a stock display label with the ticker code appearing once.
+
+    Returns "Name (CODE)" (or "Name(CODE)" when separator is "") unless the
+    cleaned name equals the code, in which case the name alone is returned.
+    A code that merely appears as a word inside the name (e.g. "Avoid Corp"
+    with code "AVOID") does not count as the code being shown: the code is
+    only treated as present when strip_code_from_stock_name removed it from
+    a parenthesised or bare-token position.
+    """
+    clean = strip_code_from_stock_name(name, code)
+    code_text = str(code or "").strip()
+    if not code_text:
+        return clean
+    if not clean:
+        return code_text
+    if clean.lower() == code_text.lower():
+        return clean
+    return f"{clean}{separator}({code_text})"
+
+
+def format_report_price(value: Any, missing: str = "N/A") -> str:
+    """Format a price-like value to 2 decimal places for report display.
+
+    Numeric values (int/float or numeric strings) are rounded to 2 decimals
+    so raw floats such as 137.74989318847656 never leak into a report.
+    Non-numeric text passes through unchanged; None/empty/"N/A" map to
+    the missing-data label.
+    """
+    if value is None:
+        return missing
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, float)):
+        if value != value:  # NaN
+            return missing
+        return f"{value:.2f}"
+    text = str(value).strip()
+    if not text or text == "N/A":
+        return missing
+    try:
+        return f"{float(text):.2f}"
+    except (TypeError, ValueError):
+        return text
+
+
+def format_report_percent(value: Any, missing: str = "N/A") -> str:
+    """Format a percent value (already in percent units) to 2 decimals.
+
+    Numeric values become "x.xx%"; strings already ending with "%" pass
+    through unchanged; None/empty/"N/A" map to the missing-data label.
+    """
+    if value is None:
+        return missing
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, (int, float)):
+        if value != value:  # NaN
+            return missing
+        return f"{value:.2f}%"
+    text = str(value).strip()
+    if not text or text == "N/A":
+        return missing
+    if text.endswith("%"):
+        return text
+    try:
+        return f"{float(text):.2f}%"
+    except (TypeError, ValueError):
+        return text
 
 
 def get_sentiment_label(score: int, language: Optional[str]) -> str:

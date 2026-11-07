@@ -23,22 +23,22 @@ from typing import Any, Optional, Tuple
 
 from src.report_language import SUPPORTED_REPORT_LANGUAGES
 
-_ZH_NOT_CONFIGURED = "⚠️ 未配置搜索渠道，本次分析未纳入新闻面证据。"
+_ZH_NOT_CONFIGURED = "未配置搜索渠道，本次分析未纳入新闻面证据。"
 _EN_NOT_CONFIGURED = (
-    "⚠️ No news search channel is configured; "
+    "No news search channel is configured; "
     "this analysis does not incorporate news-based evidence."
 )
-_ZH_ZERO_RESULTS = "⚠️ 本次未获取到可用的新闻面数据，以下结论未纳入新闻维度证据。"
+_ZH_ZERO_RESULTS = "本次未获取到可用的新闻面数据，以下结论未纳入新闻维度证据。"
 _EN_ZERO_RESULTS = (
-    "⚠️ No news data could be retrieved for this run; "
+    "No news data could be retrieved for this run; "
     "the conclusions below do not incorporate news-based evidence."
 )
 _KO_NOT_CONFIGURED = (
-    "⚠️ 뉴스 검색 채널이 설정되지 않아 이번 분석에는 "
+    "뉴스 검색 채널이 설정되지 않아 이번 분석에는 "
     "뉴스 근거를 반영하지 않았습니다."
 )
 _KO_ZERO_RESULTS = (
-    "⚠️ 이번 분석에서 사용 가능한 뉴스 데이터를 가져오지 못해 "
+    "이번 분석에서 사용 가능한 뉴스 데이터를 가져오지 못해 "
     "아래 결론에는 뉴스 근거를 반영하지 않았습니다."
 )
 

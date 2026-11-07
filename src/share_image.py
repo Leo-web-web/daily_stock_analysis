@@ -664,6 +664,23 @@ def _extract_sections(markdown_text: str) -> list[tuple[str, str, int]]:
     return sections
 
 
+def _bold_label_section(markdown_text: str, *terms: str) -> str:
+    """Return the text after a bold '**Label**' line, up to the next heading.
+
+    New-format reports render sub-sections such as 当日行情 as bold labels
+    instead of headings; fall back to them when no matching heading exists.
+    """
+    for line_match in re.finditer(r"^\*\*(.+?)\*\*\s*$", markdown_text or "", re.MULTILINE):
+        title = _plain(line_match.group(1)).lower()
+        if not any(term.lower() in title for term in terms):
+            continue
+        start = line_match.end()
+        heading_match = _HEADING_RE.search(markdown_text, start)
+        end = heading_match.start() if heading_match else len(markdown_text)
+        return markdown_text[start:end].strip()
+    return ""
+
+
 def _section(markdown_text: str, *terms: str) -> str:
     matches = list(_HEADING_RE.finditer(markdown_text or ""))
     for index, match in enumerate(matches):
@@ -972,7 +989,7 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
             name = re.sub(r"(?:分析报告|analysis report)$", "", name, flags=re.IGNORECASE).strip()
 
     score_match = re.search(r"(?:评分|score)\s*[:：]?\s*\*{0,2}(\d{1,3})", markdown_text, re.IGNORECASE)
-    core = _section(markdown_text, "核心结论", "core conclusion", "核心判断")
+    core = _section(markdown_text, "核心结论", "结论", "core conclusion", "核心判断")
     action_terms = (
         "买入", "加仓", "持有", "观望", "减仓", "卖出", "回避", "警戒",
         "buy", "add", "hold", "watch", "reduce", "sell", "avoid", "alert",
@@ -1002,6 +1019,15 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
     if not conclusion:
         match = re.search(r"\*\*[^\n]+?\*\*\s*[:：]\s*(.+)", core)
         conclusion = _clean_value(match.group(1), limit=110) if match else ""
+    if not conclusion:
+        # New-format 结论 sections state the one-sentence decision as a plain
+        # paragraph after the signal line; take its first plain line.
+        for line in (core or "").splitlines():
+            text = line.strip()
+            if not text or text.startswith("**") or "：" in text:
+                continue
+            conclusion = _clean_value(text, limit=110)
+            break
 
     poster = StockPoster(
         title=name or "个股分析",
@@ -1019,6 +1045,8 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
     )
 
     snapshot_section = _section(markdown_text, "市场快照", "当日行情", "market snapshot", "시세 스냅샷")
+    if not snapshot_section:
+        snapshot_section = _bold_label_section(markdown_text, "当日行情", "市场快照", "market snapshot")
     snapshot_map: dict[str, str] = {}
     for table in _parse_tables(snapshot_section):
         if len(table.rows) == 1:
@@ -1042,7 +1070,7 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
             poster.snapshot.append((label, value, tone))
     poster.data_source = _mapped_value(snapshot_map, "数据源", "行情来源", "source")
 
-    data_section = _section(markdown_text, "数据透视", "data view", "技术面", "technicals")
+    data_section = _section(markdown_text, "数据透视", "数据", "data view", "技术面", "technicals")
     data_map: dict[str, str] = {}
     for table in _parse_tables(data_section):
         data_map.update(_table_map(table))
@@ -1060,7 +1088,7 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
         if value:
             poster.technical.append((label, value, tone))
 
-    battle = _section(markdown_text, "作战计划", "battle plan", "操作计划", "操作点位", "action levels")
+    battle = _section(markdown_text, "作战计划", "操作", "battle plan", "操作计划", "操作点位", "action levels")
     sniper_table = _find_table(battle, "理想") or _find_table(battle, "ideal")
     sniper_values: dict[str, str] = {}
     if sniper_table:
@@ -1088,7 +1116,7 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
         if value:
             poster.sniper.append(("确认买入" if display == "次优买入" else display, value, tone))
 
-    info = _section(markdown_text, "重要信息", "key updates", "消息面", "news flow")
+    info = _section(markdown_text, "重要信息", "消息", "key updates", "消息面", "news flow")
     poster.catalysts = [
         _compact_text(item, limit=36)
         for item in _list_after_label(info, "利好催化", "positive catalysts")[:2]
@@ -1112,9 +1140,13 @@ def _stock_data(markdown_text: str, generated_on: date) -> StockPoster:
         poster.has_position = _mapped_value(position_map, "持仓者", "holding")
     position_section = _section(markdown_text, "持仓建议", "position advice")
     if not poster.no_position:
-        poster.no_position = _labeled_value(position_section, "空仓者", "no position", limit=90)
+        poster.no_position = _labeled_value(position_section, "空仓者", "no position", limit=90) or _labeled_value(
+            core, "空仓者", "no position", limit=90
+        )
     if not poster.has_position:
-        poster.has_position = _labeled_value(position_section, "持仓者", "holding", limit=90)
+        poster.has_position = _labeled_value(position_section, "持仓者", "holding", limit=90) or _labeled_value(
+            core, "持仓者", "holding", limit=90
+        )
     poster.no_position = _compact_position(poster.no_position, holding=False)
     poster.has_position = _compact_position(poster.has_position, holding=True)
     return poster

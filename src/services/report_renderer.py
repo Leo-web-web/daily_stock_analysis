@@ -17,6 +17,9 @@ from src.analyzer import AnalysisResult
 from src.config import get_config
 from src.market_phase_summary import format_public_market_status_line, format_public_phase_pack_excerpt
 from src.report_language import (
+    format_report_percent,
+    format_report_price,
+    format_stock_display_label,
     get_localized_stock_name,
     get_report_labels,
     get_signal_level,
@@ -34,6 +37,7 @@ from src.report_language import (
     normalize_report_language,
     normalize_strategy_synthesis_payload,
     strategy_invalid_opinion_count,
+    strip_code_from_stock_name,
 )
 from src.schemas.decision_action import (
     display_action_fields_for_result,
@@ -57,15 +61,15 @@ def _escape_md(text: str) -> str:
     return text.replace("*", "\\*").replace("_", "\\_")
 
 
-def _clean_sniper_value(val: Any) -> str:
-    """Format sniper point value for display (strip label prefixes)."""
+def _clean_sniper_value(val: Any, missing: str = "N/A") -> str:
+    """Format sniper point value for display (strip label prefixes, round prices)."""
     if val is None:
-        return "N/A"
+        return missing
     if isinstance(val, (int, float)):
-        return str(val)
+        return format_report_price(val, missing)
     s = str(val).strip() if val else ""
     if not s or s == "N/A":
-        return s or "N/A"
+        return missing
     prefixes = [
         "理想买入点：", "次优买入点：", "止损位：", "目标位：",
         "理想买入点:", "次优买入点:", "止损位:", "目标位:",
@@ -73,8 +77,26 @@ def _clean_sniper_value(val: Any) -> str:
     ]
     for prefix in prefixes:
         if s.startswith(prefix):
-            return s[len(prefix):]
-    return s
+            s = s[len(prefix):]
+            break
+    return format_report_price(s.strip(), missing)
+
+
+def _clean_checklist(checklist: Any) -> List[str]:
+    """Strip leading ✅/⚠️/❌ status markers from checklist items at render time.
+
+    The markers are meaningful for the WeChat failed-checks extraction,
+    which reads the raw items, so they are only removed here.
+    """
+    items = []
+    for item in checklist or []:
+        text = str(item or "").strip()
+        for marker in ("✅", "⚠️", "⚠", "❌"):
+            if text.startswith(marker):
+                text = text[len(marker):].strip()
+                break
+        items.append(text)
+    return items
 
 
 def _resolve_templates_dir() -> Path:
@@ -161,13 +183,17 @@ def render(
             "alert": "sell",
         }.get(display_action, display_action)
         _, se, _ = get_signal_level(signal_action or display_advice, r.sentiment_score, report_language)
-        rn = get_localized_stock_name(r.name, r.code, report_language)
+        rn = strip_code_from_stock_name(
+            get_localized_stock_name(r.name, r.code, report_language), r.code
+        )
         sorted_enriched.append({
             "result": r,
             "empty_news_disclosure": empty_news_disclosure(r, report_language),
             "signal_text": display_advice,
             "signal_emoji": se,
             "stock_name": _escape_md(rn),
+            "stock_label": _escape_md(format_stock_display_label(rn, r.code, separator="")),
+            "stock_title": _escape_md(format_stock_display_label(rn, r.code)),
             "localized_operation_advice": display_advice,
             "localized_trend_prediction": localize_trend_prediction(r.trend_prediction, report_language),
         })
@@ -228,6 +254,9 @@ def render(
         "market_status_line": market_status_line(),
         "escape_md": _escape_md,
         "clean_sniper": _clean_sniper_value,
+        "clean_checklist": _clean_checklist,
+        "format_price": format_report_price,
+        "format_percent": format_report_percent,
         "failed_checks": failed_checks,
         "phase_pack_excerpt": phase_pack_excerpt,
         "history_by_code": {},
