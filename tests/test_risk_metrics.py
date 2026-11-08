@@ -109,12 +109,15 @@ class TestGetRiskMetricsForCode(unittest.TestCase):
     def tearDown(self):
         risk_metrics.clear_risk_metrics_cache()
 
-    def test_non_pilot_code_does_not_fetch(self):
+    def test_any_code_fetches(self):
+        """Rollout: every code is fetched, not just QQQ."""
+        closes = [(f"2026-01-{day:02d}", 100.0 + day) for day in range(1, 11)]
         with mock.patch.object(
-            risk_metrics, "fetch_daily_closes"
+            risk_metrics, "fetch_daily_closes", return_value=closes
         ) as mock_fetch:
-            self.assertIsNone(risk_metrics.get_risk_metrics_for_code("EWY"))
-            mock_fetch.assert_not_called()
+            metrics = risk_metrics.get_risk_metrics_for_code("EWY")
+            self.assertIsNotNone(metrics)
+            mock_fetch.assert_called_once_with("EWY", days=risk_metrics.RISK_METRICS_FETCH_DAYS)
 
     def test_fetch_failure_returns_none(self):
         with mock.patch.object(

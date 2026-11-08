@@ -1,9 +1,8 @@
 """Risk metrics for the daily brief (QuantStats-style definitions, no quantstats dependency).
 
-Pilot scope: QQQ only (see ``RISK_METRICS_PILOT_CODES`` for the extension
-point). Only the *definitions* are borrowed from QuantStats
-(ranaroussi/quantstats); the library itself is intentionally not a
-dependency, so the daily job stays light:
+Rollout scope: all tickers in the daily brief. Only the *definitions*
+are borrowed from QuantStats (ranaroussi/quantstats); the library
+itself is intentionally not a dependency, so the daily job stays light:
 
 - Sharpe ratio: mean excess daily return / std of daily returns,
   annualised with ``sqrt(periods_per_year)`` (risk-free rate 0).
@@ -32,25 +31,16 @@ TRADING_DAYS_PER_YEAR = 252
 #: Number of most recent trading days the brief's risk metrics cover.
 RISK_METRICS_LOOKBACK_DAYS = TRADING_DAYS_PER_YEAR
 
-#: Pilot scope: only these (normalised) codes get a risk-metrics block in
-#: the brief. Add a code here to extend the pilot to more tickers.
-RISK_METRICS_PILOT_CODES = frozenset({"QQQ"})
-
 #: How many calendar days of history to fetch for one trading year of data.
 RISK_METRICS_FETCH_DAYS = 365
 
-#: Process-lifetime cache: one report run fetches each pilot code once.
+#: Process-lifetime cache: one report run fetches each code once.
 _RISK_METRICS_CACHE: Dict[str, Optional[Dict[str, Optional[float]]]] = {}
 
 
 def normalize_code(code: Optional[str]) -> str:
-    """Normalise a stock code for pilot-scope checks (``" qqq "`` -> ``"QQQ"``)."""
+    """Normalise a stock code (``" qqq "`` -> ``"QQQ"``)."""
     return (code or "").strip().upper()
-
-
-def is_risk_metrics_pilot_code(code: Optional[str]) -> bool:
-    """Whether ``code`` is in the risk-metrics pilot scope."""
-    return normalize_code(code) in RISK_METRICS_PILOT_CODES
 
 
 def clear_risk_metrics_cache() -> None:
@@ -212,13 +202,12 @@ def get_risk_metrics_for_code(
 ) -> Optional[Dict[str, Optional[float]]]:
     """Risk metrics for one code, or ``None`` when unavailable.
 
-    Only pilot codes are fetched; anything else returns ``None`` without
-    touching the network. Results are cached per code for the lifetime of
-    the process so a report rendered more than once fetches only once.
+    Any code may be fetched; results are cached per code for the
+    lifetime of the process so a report rendered more than once
+    fetches only once. A fetch failure or an empty history returns
+    ``None`` (fail-open: the report shows the missing-data label).
     """
     normalized = normalize_code(code)
-    if normalized not in RISK_METRICS_PILOT_CODES:
-        return None
     if normalized in _RISK_METRICS_CACHE:
         return _RISK_METRICS_CACHE[normalized]
     try:

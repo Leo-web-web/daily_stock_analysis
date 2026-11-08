@@ -1227,7 +1227,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
     def test_dashboard_qqq_data_section_shows_risk_metrics(
         self, mock_get_config: mock.MagicMock, mock_get_metrics: mock.MagicMock
     ):
-        """Pilot: QQQ's 数据 section gains a 1Y risk-metrics line."""
+        """QQQ's 数据 section gains a 1Y risk-metrics line."""
         mock_get_config.return_value = _make_config(report_renderer_enabled=False)
         mock_get_metrics.return_value = {
             "sharpe_ratio": 0.851234,
@@ -1270,7 +1270,7 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
     def test_dashboard_qqq_data_section_shows_missing_when_risk_metrics_unavailable(
         self, mock_get_config: mock.MagicMock, mock_get_metrics: mock.MagicMock
     ):
-        """Pilot: no history means the missing-data label, never NaN."""
+        """No history means the missing-data label, never NaN."""
         mock_get_config.return_value = _make_config(report_renderer_enabled=False)
         mock_get_metrics.return_value = None
         service = NotificationService()
@@ -1296,11 +1296,17 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
     @mock.patch("src.notification.get_risk_metrics_for_code")
     @mock.patch("src.notification.get_config")
-    def test_dashboard_non_qqq_data_section_has_no_risk_metrics(
+    def test_dashboard_non_qqq_data_section_shows_risk_metrics(
         self, mock_get_config: mock.MagicMock, mock_get_metrics: mock.MagicMock
     ):
-        """Pilot scope: only QQQ gets the risk-metrics line."""
+        """Rollout: every ticker gets the risk-metrics line, not just QQQ."""
         mock_get_config.return_value = _make_config(report_renderer_enabled=False)
+        mock_get_metrics.return_value = {
+            "sharpe_ratio": 0.461234,
+            "max_drawdown": -0.1482,
+            "calmar_ratio": 0.53,
+            "trading_days": 252.0,
+        }
         service = NotificationService()
         result = AnalysisResult(
             code="EWY",
@@ -1319,8 +1325,8 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
 
         out = service.generate_dashboard_report([result], report_date="2026-11-07")
 
-        mock_get_metrics.assert_not_called()
-        self.assertNotIn("风险指标", out)
+        mock_get_metrics.assert_called_once_with("EWY")
+        self.assertIn("**风险指标（近1年）**：夏普比率 0.46 | 最大回撤 -14.82% | 卡玛比率 0.53", out)
 
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_skips_context_only_phase_decision_default_renderer(

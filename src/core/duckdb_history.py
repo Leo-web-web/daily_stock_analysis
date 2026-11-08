@@ -1,4 +1,4 @@
-"""Local DuckDB store for daily price history (pilot: QQQ only).
+"""Local DuckDB store for daily price history (all brief tickers).
 
 The online report still uses the pandas moving averages from
 ``src/stock_analyzer.py``; this module is a *parallel verification* path:

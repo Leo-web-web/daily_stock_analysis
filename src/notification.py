@@ -24,7 +24,7 @@ from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from enum import Enum
 
 from src.config import Config, get_config
-from src.core.risk_metrics import get_risk_metrics_for_code, is_risk_metrics_pilot_code
+from src.core.risk_metrics import get_risk_metrics_for_code
 from src.enums import ReportType
 from src.market_phase_summary import format_public_market_status_line, format_public_phase_pack_excerpt
 from src.notification_routing import (
@@ -1275,7 +1275,7 @@ class NotificationService(
     def _risk_metrics_lines(
         self, labels: Dict[str, str], missing: str, code: str
     ) -> List[str]:
-        """Risk-metrics lines for the 数据 section (pilot: QQQ only).
+        """Risk-metrics lines for the 数据 section.
 
         Based on the last 1 trading year of daily returns; when the
         metrics are unavailable the missing-data label is shown instead
@@ -1556,11 +1556,10 @@ class NotificationService(
                             f"| {labels['resistance_level_label']} | {format_report_price(price_data.get('resistance_level'), missing)} |",
                             "",
                         ])
-                    # 风险指标（试点：仅 QQQ，基于近 1 年日收益）
-                    if is_risk_metrics_pilot_code(result.code):
-                        data_lines.extend(
-                            self._risk_metrics_lines(labels, missing, result.code)
-                        )
+                    # 风险指标（全部标的，基于近 1 年日收益；缺数据时显示“暂无数据”）
+                    data_lines.extend(
+                        self._risk_metrics_lines(labels, missing, result.code)
+                    )
                     # 量能分析
                     if vol_data:
                         data_lines.extend([
