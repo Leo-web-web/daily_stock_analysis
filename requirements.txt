@@ -35,6 +35,7 @@ pandas>=2.0.0               # Data analysis
 pypinyin>=0.50.0            # Name-to-code resolver (pinyin matching)
 openpyxl>=3.1.0             # Excel (.xlsx) parsing for import
 numpy>=1.24.0               # Numeric computing
+duckdb>=2.0.0               # Local analytical store for the QQQ history pilot (SQL moving averages)
 json-repair>=0.55.1         # JSON repair
 orjson>=3.10,<4             # LiteLLM runtime JSON dependency; explicitly bundled in desktop builds
 

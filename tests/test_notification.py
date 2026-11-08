@@ -1222,6 +1222,106 @@ class TestNotificationServiceReportGeneration(unittest.TestCase):
         self.assertNotIn("136.123456789", out)
         self.assertNotIn("1.23456789", out)
 
+    @mock.patch("src.notification.get_risk_metrics_for_code")
+    @mock.patch("src.notification.get_config")
+    def test_dashboard_qqq_data_section_shows_risk_metrics(
+        self, mock_get_config: mock.MagicMock, mock_get_metrics: mock.MagicMock
+    ):
+        """Pilot: QQQ's 数据 section gains a 1Y risk-metrics line."""
+        mock_get_config.return_value = _make_config(report_renderer_enabled=False)
+        mock_get_metrics.return_value = {
+            "sharpe_ratio": 0.851234,
+            "max_drawdown": -0.1234,
+            "calmar_ratio": 0.62,
+            "trading_days": 252.0,
+        }
+        service = NotificationService()
+        result = AnalysisResult(
+            code="QQQ",
+            name="纳斯达克100ETF",
+            sentiment_score=60,
+            trend_prediction="震荡",
+            operation_advice="观望",
+            analysis_summary="等待确认",
+            dashboard={
+                "core_conclusion": {"one_sentence": "等待确认"},
+                "data_perspective": {
+                    "price_position": {
+                        "current_price": 656.10,
+                        "ma5": 672.29,
+                        "ma10": 692.64,
+                        "ma20": 707.64,
+                        "bias_ma5": -2.63,
+                        "bias_status": "中性",
+                        "support_level": 647.05,
+                        "resistance_level": 691.95,
+                    },
+                },
+            },
+        )
+
+        out = service.generate_dashboard_report([result], report_date="2026-11-07")
+
+        mock_get_metrics.assert_called_once_with("QQQ")
+        self.assertIn("**风险指标（近1年）**：夏普比率 0.85 | 最大回撤 -12.34% | 卡玛比率 0.62", out)
+
+    @mock.patch("src.notification.get_risk_metrics_for_code")
+    @mock.patch("src.notification.get_config")
+    def test_dashboard_qqq_data_section_shows_missing_when_risk_metrics_unavailable(
+        self, mock_get_config: mock.MagicMock, mock_get_metrics: mock.MagicMock
+    ):
+        """Pilot: no history means the missing-data label, never NaN."""
+        mock_get_config.return_value = _make_config(report_renderer_enabled=False)
+        mock_get_metrics.return_value = None
+        service = NotificationService()
+        result = AnalysisResult(
+            code="QQQ",
+            name="纳斯达克100ETF",
+            sentiment_score=60,
+            trend_prediction="震荡",
+            operation_advice="观望",
+            analysis_summary="等待确认",
+            dashboard={
+                "core_conclusion": {"one_sentence": "等待确认"},
+                "data_perspective": {
+                    "price_position": {"current_price": 656.10},
+                },
+            },
+        )
+
+        out = service.generate_dashboard_report([result], report_date="2026-11-07")
+
+        self.assertIn("**风险指标（近1年）**：暂无数据", out)
+        self.assertNotIn("nan", out.lower())
+
+    @mock.patch("src.notification.get_risk_metrics_for_code")
+    @mock.patch("src.notification.get_config")
+    def test_dashboard_non_qqq_data_section_has_no_risk_metrics(
+        self, mock_get_config: mock.MagicMock, mock_get_metrics: mock.MagicMock
+    ):
+        """Pilot scope: only QQQ gets the risk-metrics line."""
+        mock_get_config.return_value = _make_config(report_renderer_enabled=False)
+        service = NotificationService()
+        result = AnalysisResult(
+            code="EWY",
+            name="EWY",
+            sentiment_score=60,
+            trend_prediction="震荡",
+            operation_advice="观望",
+            analysis_summary="等待确认",
+            dashboard={
+                "core_conclusion": {"one_sentence": "等待确认"},
+                "data_perspective": {
+                    "price_position": {"current_price": 137.01},
+                },
+            },
+        )
+
+        out = service.generate_dashboard_report([result], report_date="2026-11-07")
+
+        mock_get_metrics.assert_not_called()
+        self.assertNotIn("风险指标", out)
+
     @mock.patch("src.notification.get_config")
     def test_generate_dashboard_report_skips_context_only_phase_decision_default_renderer(
         self, mock_get_config: mock.MagicMock

@@ -24,6 +24,7 @@ from typing import List, Dict, Any, Optional, Tuple, TYPE_CHECKING
 from enum import Enum
 
 from src.config import Config, get_config
+from src.core.risk_metrics import get_risk_metrics_for_code, is_risk_metrics_pilot_code
 from src.enums import ReportType
 from src.market_phase_summary import format_public_market_status_line, format_public_phase_pack_excerpt
 from src.notification_routing import (
@@ -1271,6 +1272,36 @@ class NotificationService(
             signal_tag,
         )
 
+    def _risk_metrics_lines(
+        self, labels: Dict[str, str], missing: str, code: str
+    ) -> List[str]:
+        """Risk-metrics lines for the 数据 section (pilot: QQQ only).
+
+        Based on the last 1 trading year of daily returns; when the
+        metrics are unavailable the missing-data label is shown instead
+        of a number, and a metric that is undefined (e.g. Calmar with
+        zero drawdown) renders as the missing-data label, never NaN.
+        """
+        heading = (
+            f"**{labels['risk_metrics_label']}（{labels['risk_metrics_period_label']}）**"
+        )
+        metrics = get_risk_metrics_for_code(code)
+        if not metrics:
+            return [f"{heading}：{missing}", ""]
+        sharpe = format_report_price(metrics.get("sharpe_ratio"), missing)
+        calmar = format_report_price(metrics.get("calmar_ratio"), missing)
+        max_drawdown = metrics.get("max_drawdown")
+        if isinstance(max_drawdown, (int, float)) and max_drawdown == max_drawdown:
+            max_drawdown_text = format_report_percent(max_drawdown * 100, missing)
+        else:
+            max_drawdown_text = missing
+        return [
+            f"{heading}：{labels['sharpe_ratio_label']} {sharpe} | "
+            f"{labels['max_drawdown_label']} {max_drawdown_text} | "
+            f"{labels['calmar_ratio_label']} {calmar}",
+            "",
+        ]
+
     def generate_dashboard_report(
         self,
         results: List[AnalysisResult],
@@ -1525,6 +1556,11 @@ class NotificationService(
                             f"| {labels['resistance_level_label']} | {format_report_price(price_data.get('resistance_level'), missing)} |",
                             "",
                         ])
+                    # 风险指标（试点：仅 QQQ，基于近 1 年日收益）
+                    if is_risk_metrics_pilot_code(result.code):
+                        data_lines.extend(
+                            self._risk_metrics_lines(labels, missing, result.code)
+                        )
                     # 量能分析
                     if vol_data:
                         data_lines.extend([
